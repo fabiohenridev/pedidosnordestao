@@ -79,6 +79,19 @@ app.delete('/pedidos/:id', async (req, res) => {
   }
 });
 
+// 🔴 NOVA ROTA: DELETE /pedidos/nao-finalizados
+app.delete('/pedidos/nao-finalizados', async (req, res) => {
+  try {
+    const resultado = await Pedido.deleteMany({ finalizadoEm: null });
+    res.json({
+      mensagem: 'Pedidos não finalizados deletados com sucesso',
+      deletados: resultado.deletedCount
+    });
+  } catch (err) {
+    res.status(500).json({ erro: 'Erro ao deletar pedidos não finalizados' });
+  }
+});
+
 // Rota raiz
 app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 
