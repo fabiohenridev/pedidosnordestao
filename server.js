@@ -12,8 +12,8 @@ mongoose.connect(
   'mongodb+srv://henri8274:1QCtcecpyFCS7oQF@cluster0.u63gt3d.mongodb.net/?retryWrites=true&w=majority',
   { useNewUrlParser: true, useUnifiedTopology: true }
 )
-.then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
-.catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
+  .then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
+  .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
 // Schema
 const PedidoSchema = new mongoose.Schema({
@@ -29,15 +29,10 @@ const Pedido = mongoose.model('Pedido', PedidoSchema);
 // POST /pedidos
 app.post('/pedidos', async (req, res) => {
   try {
-    let { numeroCompra, descricao } = req.body;
+    const { numeroCompra, descricao } = req.body;
 
-    if (!descricao) {
-      return res.status(400).json({ erro: 'Descrição obrigatória' });
-    }
-
-    if (!numeroCompra) {
-      const agora = new Date();
-      numeroCompra = '#' + agora.getTime().toString().slice(-6);
+    if (!numeroCompra || !descricao) {
+      return res.status(400).json({ erro: 'Número da compra e descrição são obrigatórios' });
     }
 
     const novo = new Pedido({ numeroCompra, descricao });
