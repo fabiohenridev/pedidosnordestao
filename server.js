@@ -12,8 +12,8 @@ mongoose.connect(
   'mongodb+srv://henri8274:1QCtcecpyFCS7oQF@cluster0.u63gt3d.mongodb.net/?retryWrites=true&w=majority',
   { useNewUrlParser: true, useUnifiedTopology: true }
 )
-  .then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
-  .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
+.then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
+.catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
 // Schema
 const PedidoSchema = new mongoose.Schema({
