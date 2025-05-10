@@ -24,6 +24,10 @@ app.post('/pedidos', async (req, res) => {
   try {
     const novo = new Pedido({ descricao: req.body.descricao });
     await novo.save();
+    res.status(201).json({
+        mensagem: '✅ Pedido recebido e salvo com sucesso!',
+        pedido: novo
+      });
     res.status(201).json(novo);
   } catch (err) {
     res.status(500).json({ erro: 'Erro ao salvar pedido' });
