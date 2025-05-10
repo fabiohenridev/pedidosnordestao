@@ -15,30 +15,41 @@ mongoose.connect(
   .then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
   .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
-// Schema com número da compra, timestamps personalizados e finalizadoEm
+// Schema
 const PedidoSchema = new mongoose.Schema({
   numeroCompra: { type: String, required: true },
-  descricao:     { type: String, required: true },
-  finalizadoEm:  { type: Date,   default: null }
+  descricao: { type: String, required: true },
+  finalizadoEm: { type: Date, default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
 });
 
 const Pedido = mongoose.model('Pedido', PedidoSchema);
 
-// POST /pedidos — cria novo pedido
+// POST /pedidos
 app.post('/pedidos', async (req, res) => {
   try {
-    const { numeroCompra, descricao } = req.body;
+    let { numeroCompra, descricao } = req.body;
+
+    if (!descricao) {
+      return res.status(400).json({ erro: 'Descrição obrigatória' });
+    }
+
+    if (!numeroCompra) {
+      const agora = new Date();
+      numeroCompra = '#' + agora.getTime().toString().slice(-6);
+    }
+
     const novo = new Pedido({ numeroCompra, descricao });
     await novo.save();
     res.status(201).json(novo);
   } catch (err) {
+    console.error('Erro no POST /pedidos:', err);
     res.status(500).json({ erro: 'Erro ao salvar pedido' });
   }
 });
 
-// GET /pedidos — lista todos
+// GET /pedidos
 app.get('/pedidos', async (req, res) => {
   try {
     const pedidos = await Pedido.find().sort({ criadoEm: -1 });
@@ -48,7 +59,7 @@ app.get('/pedidos', async (req, res) => {
   }
 });
 
-// PATCH /pedidos/:id/finalizar — seta finalizadoEm
+// PATCH /pedidos/:id/finalizar
 app.patch('/pedidos/:id/finalizar', async (req, res) => {
   try {
     const pedido = await Pedido.findByIdAndUpdate(
@@ -63,7 +74,7 @@ app.patch('/pedidos/:id/finalizar', async (req, res) => {
   }
 });
 
-// DELETE /pedidos/:id — deleta pedido
+// DELETE /pedidos/:id
 app.delete('/pedidos/:id', async (req, res) => {
   try {
     await Pedido.findByIdAndDelete(req.params.id);
