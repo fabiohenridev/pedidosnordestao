@@ -15,22 +15,22 @@ mongoose.connect(
   .then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
   .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
-// Schema com timestamps personalizados:
-//  - criadoEm: data de criação
-//  - NÃO utilizamos updatedAt
+// Schema com número da compra, timestamps personalizados e finalizadoEm
 const PedidoSchema = new mongoose.Schema({
-  descricao: { type: String, required: true },
-  finalizadoEm: { type: Date, default: null }
+  numeroCompra: { type: String, required: true },
+  descricao:     { type: String, required: true },
+  finalizadoEm:  { type: Date,   default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
 });
 
 const Pedido = mongoose.model('Pedido', PedidoSchema);
 
-// POST /pedidos — cria novo pedido e grava criadoEm automaticamente
+// POST /pedidos — cria novo pedido
 app.post('/pedidos', async (req, res) => {
   try {
-    const novo = new Pedido({ descricao: req.body.descricao });
+    const { numeroCompra, descricao } = req.body;
+    const novo = new Pedido({ numeroCompra, descricao });
     await novo.save();
     res.status(201).json(novo);
   } catch (err) {
@@ -38,7 +38,7 @@ app.post('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos — lista todos, com o campo criadoEm presente
+// GET /pedidos — lista todos
 app.get('/pedidos', async (req, res) => {
   try {
     const pedidos = await Pedido.find().sort({ criadoEm: -1 });
