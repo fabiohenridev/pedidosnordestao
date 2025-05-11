@@ -92,6 +92,17 @@ app.delete('/pedidos/nao-finalizados', async (req, res) => {
   }
 });
 
+// GET /pedidos/finalizados
+app.get('/pedidos/finalizados', async (req, res) => {
+    try {
+      const finalizados = await Pedido.find({ finalizadoEm: { $ne: null } }).sort({ finalizadoEm: -1 });
+      res.json(finalizados);
+    } catch (err) {
+      res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados' });
+    }
+  });
+  
+
 // Rota raiz
 app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 
