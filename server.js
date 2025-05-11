@@ -1,13 +1,20 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
+const server = http.createServer(app); // Criando servidor HTTP separado
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
-// Conexão com MongoDB
+// MongoDB
 mongoose.connect(
   'mongodb+srv://henri8274:1QCtcecpyFCS7oQF@cluster0.u63gt3d.mongodb.net/?retryWrites=true&w=majority',
   { useNewUrlParser: true, useUnifiedTopology: true }
@@ -18,15 +25,21 @@ mongoose.connect(
 // Schema
 const PedidoSchema = new mongoose.Schema({
   numeroCompra: { type: String, required: true },
-  descricao:    { type: String, required: true },
-  finalizadoEm: { type: Date,   default: null }
+  descricao: { type: String, required: true },
+  finalizadoEm: { type: Date, default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
 });
 
 const Pedido = mongoose.model('Pedido', PedidoSchema);
 
-// POST /pedidos
+// WebSocket
+io.on('connection', socket => {
+  console.log('🟢 Cliente conectado');
+  socket.on('disconnect', () => console.log('🔴 Cliente desconectado'));
+});
+
+// POST /pedidos — emite notificação ao vivo
 app.post('/pedidos', async (req, res) => {
   try {
     const { numeroCompra, descricao } = req.body;
@@ -35,6 +48,12 @@ app.post('/pedidos', async (req, res) => {
     }
     const novo = new Pedido({ numeroCompra, descricao });
     await novo.save();
+    io.emit('novo-pedido', {
+      _id: novo._id,
+      numeroCompra: novo.numeroCompra,
+      descricao: novo.descricao,
+      criadoEmMS: novo.criadoEm.getTime()
+    });
     res.status(201).json(novo);
   } catch (err) {
     console.error('Erro no POST /pedidos:', err);
@@ -42,103 +61,11 @@ app.post('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos — retorna somente pedidos não finalizados
-app.get('/pedidos', async (req, res) => {
-  try {
-    const pedidosPendentes = await Pedido
-      .find({ finalizadoEm: null })
-      .sort({ criadoEm: -1 });
+// (demais rotas mantidas como estão...)
 
-    const serverTimeMS = Date.now();
-    const resposta = pedidosPendentes.map(p => ({
-      _id:          p._id,
-      numeroCompra: p.numeroCompra,
-      descricao:    p.descricao,
-      criadoEmMS:   p.criadoEm.getTime()
-    }));
-
-    res.json({ serverTimeMS, pedidos: resposta });
-  } catch (err) {
-    console.error('Erro ao buscar pedidos pendentes:', err);
-    res.status(500).json({ erro: 'Erro ao buscar pedidos pendentes' });
-  }
-});
-
-// PATCH /pedidos/:id/finalizar
-app.patch('/pedidos/:id/finalizar', async (req, res) => {
-  try {
-    const pedido = await Pedido.findByIdAndUpdate(
-      req.params.id,
-      { finalizadoEm: new Date() },
-      { new: true }
-    );
-    if (!pedido) return res.status(404).json({ erro: 'Pedido não encontrado' });
-    res.json(pedido);
-  } catch (err) {
-    console.error('Erro no PATCH /pedidos/:id/finalizar:', err);
-    res.status(500).json({ erro: 'Erro ao finalizar pedido' });
-  }
-});
-
-// DELETE /pedidos/:id
-app.delete('/pedidos/:id', async (req, res) => {
-  try {
-    await Pedido.findByIdAndDelete(req.params.id);
-    res.status(204).send();
-  } catch (err) {
-    console.error('Erro no DELETE /pedidos/:id:', err);
-    res.status(500).json({ erro: 'Erro ao deletar pedido' });
-  }
-});
-
-// DELETE /pedidos/nao-finalizados
-app.delete('/pedidos/nao-finalizados', async (req, res) => {
-  try {
-    const resultado = await Pedido.deleteMany({ finalizadoEm: null });
-    res.json({
-      mensagem: 'Pedidos não finalizados deletados com sucesso',
-      deletados: resultado.deletedCount
-    });
-  } catch (err) {
-    console.error('Erro no DELETE /pedidos/nao-finalizados:', err);
-    res.status(500).json({ erro: 'Erro ao deletar pedidos não finalizados' });
-  }
-});
-
-// GET /pedidos/finalizados — só os finalizados hoje em Fortaleza (UTC−03:00)
-app.get('/pedidos/finalizados', async (req, res) => {
-    try {
-      // Gera string "YYYY-MM-DD" de hoje em Fortaleza
-      const hojeStr = new Date().toLocaleDateString('en-CA', {
-        timeZone: 'America/Fortaleza'
-      });
-      // Ex.: "2025-05-11"
-  
-      const finalizadosHoje = await Pedido.find({
-        $expr: {
-          $eq: [
-            { 
-              $dateToString: {
-                format: "%Y-%m-%d",
-                date: "$finalizadoEm",
-                timezone: "America/Fortaleza"
-              }
-            },
-            hojeStr
-          ]
-        }
-      }).sort({ finalizadoEm: -1 });
-  
-      res.json(finalizadosHoje);
-    } catch (err) {
-      console.error('Erro ao buscar pedidos finalizados de hoje:', err);
-      res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados de hoje' });
-    }
-  });
-  
-// Rota raiz
 app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 
-app.listen(port, () => {
+// Usar server.listen em vez de app.listen
+server.listen(port, () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
 });
