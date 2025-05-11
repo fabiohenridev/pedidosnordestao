@@ -5,7 +5,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
-const server = http.createServer(app); // Criando servidor HTTP separado
+const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' }
 });
@@ -14,13 +14,13 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// MongoDB
+// Conexão com MongoDB
 mongoose.connect(
   'mongodb+srv://henri8274:1QCtcecpyFCS7oQF@cluster0.u63gt3d.mongodb.net/?retryWrites=true&w=majority',
   { useNewUrlParser: true, useUnifiedTopology: true }
 )
-  .then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
-  .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
+.then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
+.catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
 // Schema
 const PedidoSchema = new mongoose.Schema({
@@ -39,21 +39,27 @@ io.on('connection', socket => {
   socket.on('disconnect', () => console.log('🔴 Cliente desconectado'));
 });
 
-// POST /pedidos — emite notificação ao vivo
+// Rota inicial
+app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
+
+// POST /pedidos — Cria um novo pedido e emite para WebSocket
 app.post('/pedidos', async (req, res) => {
   try {
     const { numeroCompra, descricao } = req.body;
     if (!numeroCompra || !descricao) {
       return res.status(400).json({ erro: 'Número da compra e descrição são obrigatórios' });
     }
+
     const novo = new Pedido({ numeroCompra, descricao });
     await novo.save();
+
     io.emit('novo-pedido', {
       _id: novo._id,
       numeroCompra: novo.numeroCompra,
       descricao: novo.descricao,
       criadoEmMS: novo.criadoEm.getTime()
     });
+
     res.status(201).json(novo);
   } catch (err) {
     console.error('Erro no POST /pedidos:', err);
@@ -61,11 +67,35 @@ app.post('/pedidos', async (req, res) => {
   }
 });
 
-// (demais rotas mantidas como estão...)
+// GET /pedidos — Lista pedidos em andamento
+app.get('/pedidos', async (req, res) => {
+  try {
+    const pedidos = await Pedido.find({ finalizadoEm: null }).sort({ criadoEm: -1 });
+    const serverTimeMS = Date.now();
+    res.json({ serverTimeMS, pedidos });
+  } catch (err) {
+    console.error('Erro ao buscar pedidos:', err);
+    res.status(500).json({ erro: 'Erro ao buscar pedidos' });
+  }
+});
 
-app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
+// PATCH /pedidos/:id/finalizar — Finaliza um pedido
+app.patch('/pedidos/:id/finalizar', async (req, res) => {
+  try {
+    const pedido = await Pedido.findByIdAndUpdate(
+      req.params.id,
+      { finalizadoEm: new Date() },
+      { new: true }
+    );
+    if (!pedido) return res.status(404).json({ erro: 'Pedido não encontrado' });
+    res.json(pedido);
+  } catch (err) {
+    console.error('Erro ao finalizar pedido:', err);
+    res.status(500).json({ erro: 'Erro ao finalizar pedido' });
+  }
+});
 
-// Usar server.listen em vez de app.listen
+// Iniciar servidor
 server.listen(port, () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
 });
