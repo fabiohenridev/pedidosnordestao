@@ -105,23 +105,37 @@ app.delete('/pedidos/nao-finalizados', async (req, res) => {
   }
 });
 
-// GET /pedidos/finalizados — só os finalizados hoje
+// GET /pedidos/finalizados — só os finalizados hoje em Fortaleza (UTC−03:00)
 app.get('/pedidos/finalizados', async (req, res) => {
-  try {
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-
-    const finalizadosHoje = await Pedido
-      .find({ finalizadoEm: { $gte: hoje } })
-      .sort({ finalizadoEm: -1 });
-
-    res.json(finalizadosHoje);
-  } catch (err) {
-    console.error('Erro ao buscar pedidos finalizados de hoje:', err);
-    res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados de hoje' });
-  }
-});
-
+    try {
+      // Gera string "YYYY-MM-DD" de hoje em Fortaleza
+      const hojeStr = new Date().toLocaleDateString('en-CA', {
+        timeZone: 'America/Fortaleza'
+      });
+      // Ex.: "2025-05-11"
+  
+      const finalizadosHoje = await Pedido.find({
+        $expr: {
+          $eq: [
+            { 
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$finalizadoEm",
+                timezone: "America/Fortaleza"
+              }
+            },
+            hojeStr
+          ]
+        }
+      }).sort({ finalizadoEm: -1 });
+  
+      res.json(finalizadosHoje);
+    } catch (err) {
+      console.error('Erro ao buscar pedidos finalizados de hoje:', err);
+      res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados de hoje' });
+    }
+  });
+  
 // Rota raiz
 app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 
