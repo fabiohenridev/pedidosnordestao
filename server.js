@@ -46,13 +46,22 @@ app.post('/pedidos', async (req, res) => {
 
 // GET /pedidos
 app.get('/pedidos', async (req, res) => {
-  try {
-    const pedidos = await Pedido.find().sort({ criadoEm: -1 });
-    res.json(pedidos);
-  } catch (err) {
-    res.status(500).json({ erro: 'Erro ao buscar pedidos' });
-  }
-});
+    try {
+      const pedidos = await Pedido.find().sort({ criadoEm: -1 });
+      // Mapeia cada pedido para incluir timestamps numéricos
+      const resposta = pedidos.map(p => ({
+        _id: p._id,
+        numeroCompra: p.numeroCompra,
+        descricao: p.descricao,
+        criadoEmMS: p.criadoEm.getTime(),
+        finalizadoEmMS: p.finalizadoEm ? p.finalizadoEm.getTime() : null
+      }));
+      res.json(resposta);
+    } catch (err) {
+      res.status(500).json({ erro: 'Erro ao buscar pedidos' });
+    }
+  });
+  
 
 // PATCH /pedidos/:id/finalizar
 app.patch('/pedidos/:id/finalizar', async (req, res) => {
