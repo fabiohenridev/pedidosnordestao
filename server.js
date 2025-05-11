@@ -79,6 +79,17 @@ app.get('/pedidos', async (req, res) => {
   }
 });
 
+// GET /pedidos/finalizados — Lista pedidos finalizados
+app.get('/pedidos/finalizados', async (req, res) => {
+  try {
+    const pedidosFinalizados = await Pedido.find({ finalizadoEm: { $ne: null } }).sort({ finalizadoEm: -1 });
+    res.json(pedidosFinalizados);
+  } catch (err) {
+    console.error('Erro ao buscar pedidos finalizados:', err);
+    res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados' });
+  }
+});
+
 // PATCH /pedidos/:id/finalizar — Finaliza um pedido
 app.patch('/pedidos/:id/finalizar', async (req, res) => {
   try {
