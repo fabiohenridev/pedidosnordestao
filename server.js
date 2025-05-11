@@ -44,24 +44,28 @@ app.post('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos
+// GET /pedidos — retorna somente pedidos não finalizados
 app.get('/pedidos', async (req, res) => {
     try {
-      const pedidos = await Pedido.find().sort({ criadoEm: -1 });
+      const pedidosPendentes = await Pedido
+        .find({ finalizadoEm: null })      // filtra apenas pendentes
+        .sort({ criadoEm: -1 });
+  
       const serverTimeMS = Date.now();
-      const resposta = pedidos.map(p => ({
-        _id: p._id,
-        numeroCompra: p.numeroCompra,
-        descricao: p.descricao,
-        criadoEmMS: p.criadoEm.getTime(),
-        finalizadoEmMS: p.finalizadoEm ? p.finalizadoEm.getTime() : null
+      const resposta = pedidosPendentes.map(p => ({
+        _id:            p._id,
+        numeroCompra:   p.numeroCompra,
+        descricao:      p.descricao,
+        criadoEmMS:     p.criadoEm.getTime()
       }));
-      // embrulha tudo num objeto
+  
       res.json({ serverTimeMS, pedidos: resposta });
     } catch (err) {
-      res.status(500).json({ erro: 'Erro ao buscar pedidos' });
+      console.error('Erro ao buscar pedidos pendentes:', err);
+      res.status(500).json({ erro: 'Erro ao buscar pedidos pendentes' });
     }
   });
+  
   
 
 // PATCH /pedidos/:id/finalizar
