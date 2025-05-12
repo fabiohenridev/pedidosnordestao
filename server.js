@@ -6,7 +6,9 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
 const port = process.env.PORT || 3000;
 
 app.use(cors());
@@ -20,12 +22,11 @@ mongoose.connect(
 .then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
 .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
-// Schema com campo `tipo`
+// Schema
 const PedidoSchema = new mongoose.Schema({
   numeroCompra: { type: String, required: true },
-  descricao:    { type: String, required: true },
-  tipo:         { type: String, enum: ['a1','a2','f'], required: true },
-  finalizadoEm: { type: Date,   default: null }
+  descricao: { type: String, required: true },
+  finalizadoEm: { type: Date, default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
 });
@@ -41,22 +42,22 @@ io.on('connection', socket => {
 // Rota inicial
 app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 
-// POST /pedidos — Cria um novo pedido com tipo e emite para WebSocket
+// POST /pedidos — Cria um novo pedido e emite para WebSocket
 app.post('/pedidos', async (req, res) => {
   try {
-    const { numeroCompra, descricao, tipo } = req.body;
-    if (!numeroCompra || !descricao || !['a1','a2','f'].includes(tipo)) {
-      return res.status(400).json({ erro: 'Número, descrição e tipo são obrigatórios' });
+    const { numeroCompra, descricao } = req.body;
+    if (!numeroCompra || !descricao) {
+      return res.status(400).json({ erro: 'Número da compra e descrição são obrigatórios' });
     }
-    const novo = new Pedido({ numeroCompra, descricao, tipo });
+
+    const novo = new Pedido({ numeroCompra, descricao });
     await novo.save();
 
     io.emit('novo-pedido', {
       _id: novo._id,
       numeroCompra: novo.numeroCompra,
       descricao: novo.descricao,
-      tipo: novo.tipo,
-      criadoEm: novo.criadoEm
+      criadoEmMS: novo.criadoEm.getTime()
     });
 
     res.status(201).json(novo);
@@ -78,19 +79,11 @@ app.get('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos/finalizados — Lista pedidos finalizados hoje
+// GET /pedidos/finalizados — Lista pedidos finalizados
 app.get('/pedidos/finalizados', async (req, res) => {
   try {
-    const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Fortaleza' });
-    const finalizados = await Pedido.find({
-      $expr: {
-        $eq: [
-          { $dateToString: { format: "%Y-%m-%d", date: "$finalizadoEm", timezone: "America/Fortaleza" } },
-          hoje
-        ]
-      }
-    }).sort({ finalizadoEm: -1 });
-    res.json(finalizados);
+    const pedidosFinalizados = await Pedido.find({ finalizadoEm: { $ne: null } }).sort({ finalizadoEm: -1 });
+    res.json(pedidosFinalizados);
   } catch (err) {
     console.error('Erro ao buscar pedidos finalizados:', err);
     res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados' });
@@ -114,4 +107,6 @@ app.patch('/pedidos/:id/finalizar', async (req, res) => {
 });
 
 // Iniciar servidor
-server.listen(port, () => console.log(`🚀 Rodando na porta ${port}`));
+server.listen(port, () => {
+  console.log(`🚀 Servidor rodando na porta ${port}`);
+});
