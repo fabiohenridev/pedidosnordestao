@@ -19,14 +19,22 @@ mongoose.connect(
   'mongodb+srv://henri8274:1QCtcecpyFCS7oQF@cluster0.u63gt3d.mongodb.net/?retryWrites=true&w=majority',
   { useNewUrlParser: true, useUnifiedTopology: true }
 )
-.then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
+.then(async () => {
+  console.log('✅ Conectado ao MongoDB Atlas com sucesso!');
+  // Migração para adicionar tipo padrão a pedidos existentes
+  await Pedido.updateMany(
+    { tipo: { $exists: false } },
+    { $set: { tipo: 'A1' } }
+  );
+  console.log('✅ Migração de tipo concluída para pedidos existentes.');
+})
 .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
 // Schema
 const PedidoSchema = new mongoose.Schema({
   numeroCompra: { type: String, required: true },
   descricao: { type: String, required: true },
-  tipo: { type: String, enum: ['A1', 'A2', 'F'], required: true },
+  tipo: { type: String, enum: ['A1', 'A2', 'F'], required: true, default: 'A1' },
   finalizadoEm: { type: Date, default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
@@ -47,6 +55,7 @@ app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 app.post('/pedidos', async (req, res) => {
   try {
     const { numeroCompra, descricao, tipo } = req.body;
+    console.log('Recebendo pedido:', { numeroCompra, descricao, tipo });
     if (!numeroCompra || !descricao || !tipo) {
       return res.status(400).json({ erro: 'Número da compra, descrição e tipo são obrigatórios' });
     }
@@ -56,6 +65,7 @@ app.post('/pedidos', async (req, res) => {
 
     const novo = new Pedido({ numeroCompra, descricao, tipo });
     await novo.save();
+    console.log('Pedido salvo:', { _id: novo._id, tipo: novo.tipo });
 
     io.emit('novo-pedido', {
       _id: novo._id,
@@ -67,7 +77,7 @@ app.post('/pedidos', async (req, res) => {
 
     res.status(201).json(novo);
   } catch (err) {
-    console.error('Erro no POST /pedidos:', err);
+    console.error('Erro no epidid://pedidos:', err);
     res.status(500).json({ erro: 'Erro ao salvar pedido' });
   }
 });
