@@ -94,16 +94,27 @@ app.get('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos/finalizados — Lista pedidos finalizados
+// GET /pedidos/finalizados — Lista pedidos finalizados hoje
 app.get('/pedidos/finalizados', async (req, res) => {
-  try {
-    const pedidosFinalizados = await Pedido.find({ finalizadoEm: { $ne: null } }).sort({ finalizadoEm: -1 });
-    res.json(pedidosFinalizados);
-  } catch (err) {
-    console.error('Erro ao buscar pedidos finalizados:', err);
-    res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados' });
-  }
-});
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
+  
+      const pedidosFinalizados = await Pedido.find({
+        finalizadoEm: {
+          $gte: today, // Greater than or equal to start of today
+          $lt: tomorrow // Less than start of tomorrow
+        }
+      }).sort({ finalizadoEm: -1 });
+  
+      res.json(pedidosFinalizados);
+    } catch (err) {
+      console.error('Erro ao buscar pedidos finalizados:', err);
+      res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados' });
+    }
+  });
 
 // PATCH /pedidos/:id/finalizar — Finaliza um pedido
 app.patch('/pedidos/:id/finalizar', async (req, res) => {
