@@ -26,6 +26,7 @@ mongoose.connect(
 const PedidoSchema = new mongoose.Schema({
   numeroCompra: { type: String, required: true },
   descricao: { type: String, required: true },
+  tipo: { type: String, enum: ['A1', 'A2', 'F'], required: true },
   finalizadoEm: { type: Date, default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
@@ -45,18 +46,22 @@ app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 // POST /pedidos — Cria um novo pedido e emite para WebSocket
 app.post('/pedidos', async (req, res) => {
   try {
-    const { numeroCompra, descricao } = req.body;
-    if (!numeroCompra || !descricao) {
-      return res.status(400).json({ erro: 'Número da compra e descrição são obrigatórios' });
+    const { numeroCompra, descricao, tipo } = req.body;
+    if (!numeroCompra || !descricao || !tipo) {
+      return res.status(400).json({ erro: 'Número da compra, descrição e tipo são obrigatórios' });
+    }
+    if (!['A1', 'A2', 'F'].includes(tipo)) {
+      return res.status(400).json({ erro: 'Tipo deve ser A1, A2 ou F' });
     }
 
-    const novo = new Pedido({ numeroCompra, descricao });
+    const novo = new Pedido({ numeroCompra, descricao, tipo });
     await novo.save();
 
     io.emit('novo-pedido', {
       _id: novo._id,
       numeroCompra: novo.numeroCompra,
       descricao: novo.descricao,
+      tipo: novo.tipo,
       criadoEmMS: novo.criadoEm.getTime()
     });
 
