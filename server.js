@@ -6,27 +6,26 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
+const io = new Server(server, { cors: { origin: '*' } });
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
 
 // Conexão com MongoDB
-mongoose.connect(
+gmongoose.connect(
   'mongodb+srv://henri8274:1QCtcecpyFCS7oQF@cluster0.u63gt3d.mongodb.net/?retryWrites=true&w=majority',
   { useNewUrlParser: true, useUnifiedTopology: true }
 )
 .then(() => console.log('✅ Conectado ao MongoDB Atlas com sucesso!'))
 .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
 
-// Schema
+// Schema com campo `tipo`
 const PedidoSchema = new mongoose.Schema({
   numeroCompra: { type: String, required: true },
-  descricao: { type: String, required: true },
-  finalizadoEm: { type: Date, default: null }
+  descricao:    { type: String, required: true },
+  tipo:         { type: String, enum: ['a1','a2','f'], required: true },
+  finalizadoEm: { type: Date,   default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
 });
@@ -34,7 +33,7 @@ const PedidoSchema = new mongoose.Schema({
 const Pedido = mongoose.model('Pedido', PedidoSchema);
 
 // WebSocket
-io.on('connection', socket => {
+aio.on('connection', socket => {
   console.log('🟢 Cliente conectado');
   socket.on('disconnect', () => console.log('🔴 Cliente desconectado'));
 });
@@ -42,24 +41,22 @@ io.on('connection', socket => {
 // Rota inicial
 app.get('/', (req, res) => res.send('API de pedidos funcionando!'));
 
-// POST /pedidos — Cria um novo pedido e emite para WebSocket
+// POST /pedidos — Cria pedido com tipo e emite evento
 app.post('/pedidos', async (req, res) => {
   try {
-    const { numeroCompra, descricao } = req.body;
-    if (!numeroCompra || !descricao) {
-      return res.status(400).json({ erro: 'Número da compra e descrição são obrigatórios' });
+    const { numeroCompra, descricao, tipo } = req.body;
+    if (!numeroCompra || !descricao || !['a1','a2','f'].includes(tipo)) {
+      return res.status(400).json({ erro: 'Número, descrição e tipo são obrigatórios' });
     }
-
-    const novo = new Pedido({ numeroCompra, descricao });
+    const novo = new Pedido({ numeroCompra, descricao, tipo });
     await novo.save();
-
     io.emit('novo-pedido', {
       _id: novo._id,
       numeroCompra: novo.numeroCompra,
       descricao: novo.descricao,
-      criadoEmMS: novo.criadoEm.getTime()
+      tipo: novo.tipo,
+      criadoEm: novo.criadoEm
     });
-
     res.status(201).json(novo);
   } catch (err) {
     console.error('Erro no POST /pedidos:', err);
@@ -67,7 +64,7 @@ app.post('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos — Lista pedidos em andamento
+// GET /pedidos — Lista pedidos pendentes
 app.get('/pedidos', async (req, res) => {
   try {
     const pedidos = await Pedido.find({ finalizadoEm: null }).sort({ criadoEm: -1 });
@@ -79,13 +76,21 @@ app.get('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos/finalizados — Lista pedidos finalizados
+// GET /pedidos/finalizados — Lista finalizados do dia (UTC−03)
 app.get('/pedidos/finalizados', async (req, res) => {
   try {
-    const pedidosFinalizados = await Pedido.find({ finalizadoEm: { $ne: null } }).sort({ finalizadoEm: -1 });
-    res.json(pedidosFinalizados);
+    const hoje = new Date().toLocaleDateString('en-CA',{timeZone:'America/Fortaleza'});
+    const finalizados = await Pedido.find({
+      $expr: {
+        $eq: [
+          { $dateToString:{ format:"%Y-%m-%d", date:"$finalizadoEm", timezone:"America/Fortaleza" } },
+          hoje
+        ]
+      }
+    }).sort({ finalizadoEm:-1 });
+    res.json(finalizados);
   } catch (err) {
-    console.error('Erro ao buscar pedidos finalizados:', err);
+    console.error('Erro ao buscar finalizados:', err);
     res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados' });
   }
 });
@@ -95,18 +100,16 @@ app.patch('/pedidos/:id/finalizar', async (req, res) => {
   try {
     const pedido = await Pedido.findByIdAndUpdate(
       req.params.id,
-      { finalizadoEm: new Date() },
-      { new: true }
+      { finalizadoEm:new Date() },
+      { new:true }
     );
-    if (!pedido) return res.status(404).json({ erro: 'Pedido não encontrado' });
+    if(!pedido) return res.status(404).json({ erro:'Pedido não encontrado' });
     res.json(pedido);
-  } catch (err) {
-    console.error('Erro ao finalizar pedido:', err);
-    res.status(500).json({ erro: 'Erro ao finalizar pedido' });
+  } catch(err) {
+    console.error('Erro ao finalizar:', err);
+    res.status(500).json({ erro:'Erro ao finalizar pedido' });
   }
 });
 
-// Iniciar servidor
-server.listen(port, () => {
-  console.log(`🚀 Servidor rodando na porta ${port}`);
-});
+// Inicia servidor
+server.listen(port, ()=>console.log(`🚀 Servidor rodando na porta ${port}`));
