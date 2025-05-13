@@ -100,7 +100,7 @@ app.get('/pedidos/finalizados', async (req, res) => {
     const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
 
-    const pedals = await Pedido.find({
+    const pedidosFinalizados = await Pedido.find({
       finalizadoEm: {
         $gte: startOfDay,
         $lt: endOfDay
@@ -111,39 +111,6 @@ app.get('/pedidos/finalizados', async (req, res) => {
   } catch (err) {
     console.error('Erro ao buscar pedidos finalizados:', err);
     res.status(500).json({ erro: 'Erro ao buscar pedidos finalizados' });
-  }
-});
-
-// PATCH /pedidos/:id — Edita um pedido
-app.patch('/pedidos/:id', async (req, res) => {
-  try {
-    const { numeroCompra, descricao, tipo } = req.body;
-    if (!numeroCompra || !descricao || !tipo) {
-      return res.status(400).json({ erro: 'Número da compra, descrição e tipo são obrigatórios' });
-    }
-    if (!['A', 'F'].includes(tipo)) {
-      return res.status(400).json({ erro: 'Tipo deve ser A ou F' });
-    }
-
-    const pedido = await Pedido.findByIdAndUpdate(
-      req.params.id,
-      { numeroCompra, descricao, tipo },
-      { new: true }
-    );
-    if (!pedido) return res.status(404).json({ erro: 'Pedido não encontrado' });
-
-    io.emit('pedido-atualizado', {
-      _id: pedido._id,
-      numeroCompra: pedido.numeroCompra,
-      descricao: pedido.descricao,
-      tipo: pedido.tipo,
-      criadoEmMS: pedido.criadoEm.getTime()
-    });
-
-    res.json(pedido);
-  } catch (err) {
-    console.error('Erro ao editar pedido:', err);
-    res.status(500).json({ erro: 'Erro ao editar pedido' });
   }
 });
 
