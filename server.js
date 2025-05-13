@@ -23,7 +23,7 @@ mongoose.connect(
   console.log('✅ Conectado ao MongoDB Atlas com sucesso!');
   await Pedido.updateMany(
     { tipo: { $exists: false } },
-    { $set: { tipo: 'A1' } }
+    { $set: { tipo: 'A' } }
   );
   console.log('✅ Migração de tipo concluída para pedidos existentes.');
 })
@@ -33,7 +33,7 @@ mongoose.connect(
 const PedidoSchema = new mongoose.Schema({
   numeroCompra: { type: String, required: true },
   descricao: { type: String, required: true },
-  tipo: { type: String, enum: ['A1', 'A2', 'F'], required: true, default: 'A1' },
+  tipo: { type: String, enum: ['A', 'F'], required: true, default: 'A' },
   finalizadoEm: { type: Date, default: null }
 }, {
   timestamps: { createdAt: 'criadoEm', updatedAt: false }
@@ -58,8 +58,8 @@ app.post('/pedidos', async (req, res) => {
     if (!numeroCompra || !descricao || !tipo) {
       return res.status(400).json({ erro: 'Número da compra, descrição e tipo são obrigatórios' });
     }
-    if (!['A1', 'A2', 'F'].includes(tipo)) {
-      return res.status(400).json({ erro: 'Tipo deve ser A1, A2 ou F' });
+    if (!['A', 'F'].includes(tipo)) {
+      return res.status(400).json({ erro: 'Tipo deve ser A ou F' });
     }
 
     const novo = new Pedido({ numeroCompra, descricao, tipo });
