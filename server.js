@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+const { DateTime } = require('luxon'); // Added for timezone handling
 
 const app = express();
 const server = http.createServer(app);
@@ -93,17 +94,18 @@ app.get('/pedidos', async (req, res) => {
   }
 });
 
-// GET /pedidos/finalizados — Lista pedidos finalizados hoje
+// GET /pedidos/finalizados — Lista pedidos finalizados hoje (fixed for Brasília timezone)
 app.get('/pedidos/finalizados', async (req, res) => {
   try {
-    const now = new Date();
-    const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    // Define "today" in Brasília timezone
+    const now = DateTime.now().setZone('America/Sao_Paulo');
+    const startOfDay = now.startOf('day').toJSDate(); // 00:00:00 BRT
+    const endOfDay = now.endOf('day').toJSDate(); // 23:59:59.999 BRT
 
     const pedidosFinalizados = await Pedido.find({
       finalizadoEm: {
         $gte: startOfDay,
-        $lt: endOfDay
+        $lte: endOfDay
       }
     }).sort({ finalizadoEm: -1 });
 
